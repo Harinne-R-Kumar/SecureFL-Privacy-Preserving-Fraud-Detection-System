@@ -1,0 +1,36 @@
+{
+  "model_inversion": {
+    "attack": "model_inversion",
+    "success_rate": 3.819492038856936e-06,
+    "defense_effectiveness": 95.0,
+    "status": "BLOCKED \u2713"
+  },
+  "membership_inference": {
+    "attack": "membership_inference",
+    "success_rate": 0.988,
+    "threshold": 0.53,
+    "advantage": 0.488,
+    "status": "MITIGATED \u2713"
+  },
+  "data_poisoning": {
+    "attack": "data_poisoning",
+    "success_rate": 0.19999999999999996,
+    "resilience": 0.8,
+    "tolerable_fraction": 0.19999999999999996,
+    "status": "MITIGATED \u2713"
+  },
+  "gradient_leakage": {
+    "attack": "gradient_leakage",
+    "success_rate": 0.33294632495595966,
+    "search_complexity": "10^64",
+    "privacy_margin": 3.0034871240350065,
+    "status": "BLOCKED \u2713"
+  },
+  "dp_verification": {
+    "verification": "differential_privacy",
+    "epsilon": 2.5,
+    "delta": 1e-05,
+    "total_privacy_loss": 250.0,
+    "compliant": true
+  }
+}

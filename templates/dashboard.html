@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy-Preserving FL for Fraud Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .navbar {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            background: #667eea;
+            color: #fff;
+        }
+
+        .nav-links a.active {
+            background: #667eea;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-content {
+            display: none;
+        }
+
+        .page-content.active {
+            display: block;
+        }
+
+        .hero {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .hero h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            color: #667eea;
+            font-weight: bold;
+            margin: 1rem 0;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .chart-title {
+            color: #333;
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            font-weight: bold;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .risk-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #667eea;
+        }
+
+        .risk-title {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .risk-description {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .countermeasure {
+            background: #f0f4ff;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            color: #333;
+        }
+
+        .fl-architecture {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .architecture-diagram {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .node {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 120px;
+            margin: 0.5rem;
+            font-weight: bold;
+        }
+
+        .arrow {
+            font-size: 1.5rem;
+            color: #667eea;
+            margin: 0.5rem;
+        }
+
+        .form-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .result-box {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+            text-align: center;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-fraudulent {
+            color: #e74c3c;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .result-safe {
+            color: #27ae60;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-links {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            .architecture-diagram {
+                flex-direction: column;
+            }
+        }
+
+        footer {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">🔒 FL-Fraud Detection</div>
+            <ul class="nav-links">
+                <li><a href="#" onclick="showPage('home')" class="nav-link active">Home</a></li>
+                <li><a href="#" onclick="showPage('comparison')" class="nav-link">Comparison</a></li>
+                <li><a href="#" onclick="showPage('architecture')" class="nav-link">FL Architecture</a></li>
+                <li><a href="#" onclick="showPage('privacy')" class="nav-link">Privacy Analysis</a></li>
+                <li><a href="#" onclick="showPage('predict')" class="nav-link">Predict</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Home Page -->
+        <div id="home" class="page-content active">
+            <div class="hero">
+                <h1>Privacy-Preserving Federated Learning</h1>
+                <p>Detecting Fraudulent Transactions While Protecting Data Privacy</p>
+                <p style="font-size: 0.9rem; color: #999;">Advanced system for collaborative fraud detection without centralizing sensitive transaction data</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div style="font-size: 2rem;">📊</div>
+                    <div class="stat-label">Dataset Size</div>
+                    <div class="stat-number">51K</div>
+                    <div class="stat-label">Transactions</div>
+                </div>
+
+                <div class="stat-card">
+                    <div style="font-size: 2rem;">🏥</div>
+                    <div class="stat-label">Clients</div>
+                    <div class="stat-number">5</div>
+                    <div class="stat-label">Federated</div>
+                </div>
+
+                <div class="stat-card">
+                    <div style="font-size: 2rem;">🎯</div>
+                    <div class="stat-label">Centralized Accuracy</div>
+                    <div class="stat-number">95.08%</div>
+                    <div class="stat-label">Baseline Model</div>
+                </div>
+
+                <div class="stat-card">
+                    <div style="font-size: 2rem;">🔐</div>
+                    <div class="stat-label">FL Accuracy</div>
+                    <div class="stat-number">~85%</div>
+                    <div class="stat-label">With Privacy</div>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top: 2rem;">
+                <div class="chart-container">
+                    <div class="chart-title">📈 Fraud Distribution</div>
+                    <canvas id="fraudDistChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">💾 Data Split Across Clients</div>
+                    <canvas id="clientDataChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Page -->
+        <div id="comparison" class="page-content">
+            <div class="hero">
+                <h1>Model Comparison: Centralized vs Federated</h1>
+                <p>Performance metrics comparing traditional centralized learning with privacy-preserving federated approach</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="chart-container">
+                    <div class="chart-title">📊 Accuracy Comparison</div>
+                    <canvas id="accuracyChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">⚖️ Privacy vs Performance Trade-off</div>
+                    <canvas id="tradeoffChart"></canvas>
+                </div>
+            </div>
+
+            <div class="comparison-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Centralized Learning</th>
+                            <th>Federated Learning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Model Accuracy</strong></td>
+                            <td><span class="badge badge-success">95.08%</span></td>
+                            <td><span class="badge badge-warning">~85%</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>AUC Score</strong></td>
+                            <td><span class="badge badge-success">0.4957</span></td>
+                            <td><span class="badge badge-warning">~0.80</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Data Privacy</strong></td>
+                            <td><span class="badge badge-danger">Low ❌</span></td>
+                            <td><span class="badge badge-success">High ✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Data Centralization</strong></td>
+                            <td><span class="badge badge-danger">All on Server</span></td>
+                            <td><span class="badge badge-success">Decentralized</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Communication Cost</strong></td>
+                            <td><span class="badge badge-success">Minimal</span></td>
+                            <td><span class="badge badge-warning">High (10 rounds)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Differential Privacy</strong></td>
+                            <td><span class="badge badge-danger">None</span></td>
+                            <td><span class="badge badge-success">Yes (σ=0.5)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Model Inversion Risk</strong></td>
+                            <td><span class="badge badge-danger">High ⚠️</span></td>
+                            <td><span class="badge badge-success">Mitigated ✓</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📉 Training Loss Over Rounds</div>
+                <canvas id="lossChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Architecture Page -->
+        <div id="architecture" class="page-content">
+            <div class="hero">
+                <h1>Federated Learning Architecture</h1>
+                <p>Understanding the system design and information flow</p>
+            </div>
+
+            <div class="fl-architecture">
+                <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">System Architecture</h2>
+                <div class="architecture-diagram">
+                    <div class="node">Client 1<br>Data: 10.2K</div>
+                    <div class="arrow">→</div>
+                    <div class="node" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">Server<br>Aggregation</div>
+                    <div class="arrow">←</div>
+                    <div class="node">Client 2<br>Data: 10.2K</div>
+                </div>
+
+                <div class="architecture-diagram">
+                    <div class="node">Client 3<br>Data: 10.2K</div>
+                    <div class="arrow">→</div>
+                    <div class="node" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">Model<br>Coordinator</div>
+                    <div class="arrow">←</div>
+                    <div class="node">Client 4<br>Data: 10.2K</div>
+                </div>
+
+                <div class="architecture-diagram">
+                    <div class="node">Client 5<br>Data: 10.2K</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="chart-container">
+                    <div class="chart-title">🔄 FL Process Flow</div>
+                    <ol style="padding-left: 2rem; line-height: 2;">
+                        <li><strong>Server initialization:</strong> Sends initial model to all clients</li>
+                        <li><strong>Local training:</strong> Each client trains on local data (5 epochs)</li>
+                        <li><strong>Model upload:</strong> Clients send encrypted model updates</li>
+                        <li><strong>Aggregation:</strong> Server combines updates using FedAvg</li>
+                        <li><strong>Distribution:</strong> Server broadcasts new global model</li>
+                        <li><strong>Repeat:</strong> 10 rounds of collaboration</li>
+                    </ol>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">🛡️ Security Mechanisms</div>
+                    <ul style="padding-left: 2rem; line-height: 2;">
+                        <li><strong>Secure Aggregation:</strong> Model updates combined securely</li>
+                        <li><strong>Differential Privacy:</strong> Noise added to prevent inference attacks</li>
+                        <li><strong>Encryption:</strong> Communication channels protected</li>
+                        <li><strong>Client Authentication:</strong> Verify legitimate participants</li>
+                        <li><strong>Gradient Clipping:</strong> Limit gradient magnitude</li>
+                        <li><strong>Anomaly Detection:</strong> Identify poisoning attempts</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Privacy Analysis Page -->
+        <div id="privacy" class="page-content">
+            <div class="hero">
+                <h1>Privacy & Security Analysis</h1>
+                <p>Comprehensive overview of potential risks and mitigation strategies</p>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <h2 style="color: #333; margin-bottom: 1.5rem;">⚠️ Privacy Threats & Solutions</h2>
+
+                <div class="risk-item">
+                    <div class="risk-title">🎯 Model Inversion Attacks</div>
+                    <div class="risk-description">
+                        <strong>Risk:</strong> Attackers can reconstruct sensitive input data by querying the model or analyzing gradients.
+                    </div>
+                    <div class="countermeasure">
+                        <strong>✓ Countermeasure:</strong> Differential Privacy adds calibrated noise to model updates, making data reconstruction probabilistically difficult.
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-title">👥 Membership Inference Attacks</div>
+                    <div class="risk-description">
+                        <strong>Risk:</strong> Adversary determines whether specific data point was in training set by observing model confidence on known data.
+                    </div>
+                    <div class="countermeasure">
+                        <strong>✓ Countermeasure:</strong> DP makes it statistically impossible to distinguish affected vs unaffected models; requires noise_multiplier ≥ 1.0 for strong privacy.
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-title">☠️ Data Poisoning Attacks</div>
+                    <div class="risk-description">
+                        <strong>Risk:</strong> Malicious clients send corrupted model updates to manipulate global model behavior.
+                    </div>
+                    <div class="countermeasure">
+                        <strong>✓ Countermeasure:</strong> Byzantine-robust aggregation (e.g., median, trimmed mean), outlier detection, client reputation systems.
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-title">👂 Eavesdropping/Interception</div>
+                    <div class="risk-description">
+                        <strong>Risk:</strong> Attackers intercept model updates during transmission between clients and server.
+                    </div>
+                    <div class="countermeasure">
+                        <strong>✓ Countermeasure:</strong> TLS/SSL encryption for all communications, mutual authentication, secure key exchange protocols.
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-title">🔓 Privacy Leakage via Gradients</div>
+                    <div class="risk-description">
+                        <strong>Risk:</strong> High-resolution gradients may leak information about individual training samples.
+                    </div>
+                    <div class="countermeasure">
+                        <strong>✓ Countermeasure:</strong> Gradient clipping (limit L2 norm), parameter quantization, secure aggregation protocols.
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-title">⚡ Inference Timing Attacks</div>
+                    <div class="risk-description">
+                        <strong>Risk:</strong> Timing variations in model inference can leak information about processed data.
+                    </div>
+                    <div class="countermeasure">
+                        <strong>✓ Countermeasure:</strong> Constant-time algorithms, adding random delays, differential privacy.
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">🔒 Our DP Implementation</div>
+                <table style="width: 100%;">
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <td style="padding: 1rem;"><strong>DP Mechanism</strong></td>
+                        <td style="padding: 1rem;">Gaussian noise addition to gradients</td>
+                    </tr>
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <td style="padding: 1rem;"><strong>Noise Multiplier (σ)</strong></td>
+                        <td style="padding: 1rem;">0.5 (current) - Moderate privacy</td>
+                    </tr>
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <td style="padding: 1rem;"><strong>Gradient Clipping</strong></td>
+                        <td style="padding: 1rem;">Applied per-layer</td>
+                    </tr>
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <td style="padding: 1rem;"><strong>Privacy Budget (ε)</strong></td>
+                        <td style="padding: 1rem;">~2.5 (10 rounds)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 1rem;"><strong>Recommendation</strong></td>
+                        <td style="padding: 1rem;">For healthcare/financial: ε ≤ 1.0 (increase σ to 1.5+)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Prediction Page -->
+        <div id="predict" class="page-content">
+            <div class="hero">
+                <h1>Fraud Detection Predictor</h1>
+                <p>Enter transaction details to check for potential fraud</p>
+            </div>
+
+            <div class="form-container">
+                <form id="predictionForm">
+                    <div class="form-group">
+                        <label>Transaction Amount ($)</label>
+                        <input type="number" step="0.01" id="amount" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Transaction Type</label>
+                        <select id="type" required>
+                            <option value="">-- Select --</option>
+                            <option value="ATM Withdrawal">ATM Withdrawal</option>
+                            <option value="Bill Payment">Bill Payment</option>
+                            <option value="POS Payment">POS Payment</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Online Purchase">Online Purchase</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Time of Transaction (Hour: 0-23)</label>
+                        <input type="number" min="0" max="23" id="time" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Device Used</label>
+                        <select id="device" required>
+                            <option value="">-- Select --</option>
+                            <option value="Mobile">Mobile</option>
+                            <option value="Desktop">Desktop</option>
+                            <option value="Tablet">Tablet</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Location (City)</label>
+                        <input type="text" id="location" placeholder="e.g., New York" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Previous Fraudulent Transactions</label>
+                        <input type="number" min="0" id="prev_fraud" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Account Age (Days)</label>
+                        <input type="number" min="0" id="age" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Transactions in Last 24H</label>
+                        <input type="number" min="0" id="trans_24h" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select id="payment" required>
+                            <option value="">-- Select --</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Debit Card">Debit Card</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Net Banking">Net Banking</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn" style="width: 100%;">🔍 Predict</button>
+                </form>
+
+                <div id="resultBox" class="result-box">
+                    <h2>Prediction Result</h2>
+                    <div id="resultText" style="margin: 1rem 0;"></div>
+                    <div id="resultDetails" style="text-align: left; background: #f0f4ff; padding: 1rem; border-radius: 5px; margin-top: 1rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Privacy-Preserving Federated Learning for Fraud Detection | 8th Semester DPSA Project</p>
+        <p style="font-size: 0.9rem; margin-top: 0.5rem;">🔐 Your data remains secure and decentralized</p>
+    </footer>
+
+    <script>
+        // Page Navigation
+        function showPage(pageName) {
+            const pages = document.querySelectorAll('.page-content');
+            pages.forEach(page => page.classList.remove('active'));
+            document.getElementById(pageName).classList.add('active');
+
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(link => link.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Initialize charts when switching to comparison page
+            if (pageName === 'home' && !window.chartsInitialized) {
+                initializeCharts();
+            }
+        }
+
+        function initializeCharts() {
+            // Fraud Distribution Chart
+            const fraudCtx = document.getElementById('fraudDistChart');
+            if (fraudCtx && !window.fraudChartInit) {
+                new Chart(fraudCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Non-Fraudulent', 'Fraudulent'],
+                        datasets: [{
+                            data: [48490, 2510],
+                            backgroundColor: ['#27ae60', '#e74c3c'],
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { padding: 20, font: { size: 12 } }
+                            }
+                        }
+                    }
+                });
+                window.fraudChartInit = true;
+            }
+
+            // Client Data Distribution
+            const clientCtx = document.getElementById('clientDataChart');
+            if (clientCtx && !window.clientChartInit) {
+                new Chart(clientCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Client 1', 'Client 2', 'Client 3', 'Client 4', 'Client 5'],
+                        datasets: [{
+                            label: 'Transactions',
+                            data: [10200, 10200, 10200, 10200, 10200],
+                            backgroundColor: '#667eea',
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        indexAxis: 'x',
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+                window.clientChartInit = true;
+            }
+
+            // Comparison Charts
+            const accuracyCtx = document.getElementById('accuracyChart');
+            if (accuracyCtx && !window.accuracyChartInit) {
+                new Chart(accuracyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Centralized', 'Federated Learning'],
+                        datasets: [{
+                            label: 'Accuracy (%)',
+                            data: [95.08, 85],
+                            backgroundColor: ['#667eea', '#764ba2'],
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'x',
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { max: 100, beginAtZero: true } }
+                    }
+                });
+                window.accuracyChartInit = true;
+            }
+
+            const tradeoffCtx = document.getElementById('tradeoffChart');
+            if (tradeoffCtx && !window.tradeoffChartInit) {
+                new Chart(tradeoffCtx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'Centralized',
+                                data: [{ x: 10, y: 95.08 }],
+                                backgroundColor: '#e74c3c',
+                                borderColor: '#e74c3c',
+                                pointRadius: 10
+                            },
+                            {
+                                label: 'Federated + DP',
+                                data: [{ x: 85, y: 85 }],
+                                backgroundColor: '#27ae60',
+                                borderColor: '#27ae60',
+                                pointRadius: 10
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => `Privacy Score: ${context.raw.x}, Accuracy: ${context.raw.y}%`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Privacy Score →' }, min: 0, max: 100 },
+                            y: { title: { display: true, text: 'Model Accuracy →' }, min: 70, max: 100 }
+                        }
+                    }
+                });
+                window.tradeoffChartInit = true;
+            }
+
+            const lossCtx = document.getElementById('lossChart');
+            if (lossCtx && !window.lossChartInit) {
+                new Chart(lossCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Epoch 1', 'Epoch 2', 'Epoch 3', 'Epoch 4', 'Epoch 5', 'Epoch 6', 'Epoch 7', 'Epoch 8', 'Epoch 9', 'Epoch 10', 'Epoch 11', 'Epoch 12', 'Epoch 13', 'Epoch 14', 'Epoch 15', 'Epoch 16', 'Epoch 17', 'Epoch 18', 'Epoch 19', 'Epoch 20'],
+                        datasets: [{
+                            label: 'Training Loss',
+                            data: [0.2324, 0.2137, 0.2075, 0.2041, 0.2029, 0.1999, 0.1988, 0.1988, 0.1986, 0.1980, 0.1976, 0.1970, 0.1969, 0.1971, 0.1966, 0.1968, 0.1964, 0.1964, 0.1968, 0.1957],
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Loss' } },
+                            x: { title: { display: true, text: 'Epoch' } }
+                        }
+                    }
+                });
+                window.lossChartInit = true;
+            }
+
+            window.chartsInitialized = true;
+        }
+
+        // Initialize charts on first load
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+        });
+
+        // Prediction Form
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(document.getElementById('predictionForm'));
+            const data = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+
+                const resultBox = document.getElementById('resultBox');
+                const resultText = document.getElementById('resultText');
+                const resultDetails = document.getElementById('resultDetails');
+
+                if (result.prediction === 'Fraudulent') {
+                    resultText.innerHTML = '<div class="result-fraudulent">⚠️ HIGH RISK - Fraudulent Transaction</div>';
+                } else {
+                    resultText.innerHTML = '<div class="result-safe">✓ SAFE - Legitimate Transaction</div>';
+                }
+
+                resultDetails.innerHTML = `
+                    <strong>Risk Score:</strong> ${result.risk_score}%<br>
+                    <strong>Confidence:</strong> ${result.confidence}%<br>
+                    <strong>Reasoning:</strong> ${result.reasoning}
+                `;
+
+                resultBox.classList.add('show');
+            } catch (error) {
+                alert('Error making prediction: ' + error);
+            }
+        });
+    </script>
+</body>
+</html>

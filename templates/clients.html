@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Federated Clients Management</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .navbar {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            background: #667eea;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            width: auto;
+        }
+
+        .btn-upload {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .clients-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .clients-table th,
+        .clients-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .clients-table th {
+            background: #f8f9fa;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .clients-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .model-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .client-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 5px;
+        }
+
+        .client-card h3 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .client-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .client-info p {
+            margin: 0.25rem 0;
+        }
+
+        .client-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .client-info {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                gap: 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">🔐 FL Fraud Detection</div>
+            <ul class="nav-links">
+                <li><a href="/">Predict</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/clients" style="background: #667eea;">Clients</a></li>
+                <li><a href="/report">Report</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🤝 Federated Learning Clients Management</h1>
+            <p>Register, manage, and coordinate model sharing across distributed clients</p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid" id="statsGrid">
+            <div class="stat-card">
+                <h3 id="totalClients">0</h3>
+                <p>Total Clients</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="activeClients">0</h3>
+                <p>Active Clients</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="modelsShared">0</h3>
+                <p>Models Shared</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalDataSize">0</h3>
+                <p>Total Data Size</p>
+            </div>
+        </div>
+
+        <!-- Register New Client Section -->
+        <div class="section">
+            <h2>➕ Register New Client</h2>
+            <div id="registerMessage" class="message"></div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="userName">User Name *</label>
+                    <input type="text" id="userName" placeholder="e.g., John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="organization">Organization *</label>
+                    <input type="text" id="organization" placeholder="e.g., Company X" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dataSize">Data Size (records) *</label>
+                    <input type="number" id="dataSize" placeholder="e.g., 5000" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="region">Region *</label>
+                    <input type="text" id="region" placeholder="e.g., USA" required>
+                </div>
+            </div>
+
+            <button class="btn" onclick="registerClient()">Register Client</button>
+        </div>
+
+        <!-- Registered Clients Section -->
+        <div class="section">
+            <h2>👥 Registered Clients</h2>
+            <div id="loadingSpinner" class="loading">
+                <div class="spinner"></div>
+                <p>Loading clients...</p>
+            </div>
+            <div id="clientsContainer"></div>
+        </div>
+
+        <!-- Aggregate Models Section -->
+        <div class="section">
+            <h2>🔄 Aggregate Models (FedAvg)</h2>
+            <p style="margin-bottom: 1rem; color: #666;">Combine models from all participating clients using Federated Averaging</p>
+            <div id="aggregateMessage" class="message"></div>
+            <button class="btn" onclick="aggregateModels()">Aggregate Models Now</button>
+            <div id="aggregationResults" style="margin-top: 1rem; display: none; background: #f8f9fa; padding: 1rem; border-radius: 5px;">
+                <h4>Aggregation Results</h4>
+                <pre id="aggregationDetails" style="overflow-x: auto; font-size: 0.85rem;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                document.getElementById('totalClients').textContent = data.clients;
+                document.getElementById('activeClients').textContent = data.active_clients || 0;
+                document.getElementById('modelsShared').textContent = data.clients_with_models || 0;
+                document.getElementById('totalDataSize').textContent = (data.total_data_size / 1000).toFixed(1) + 'K';
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Register new client
+        async function registerClient() {
+            const userName = document.getElementById('userName').value.trim();
+            const organization = document.getElementById('organization').value.trim();
+            const dataSize = document.getElementById('dataSize').value;
+            const region = document.getElementById('region').value.trim();
+
+            if (!userName || !organization || !dataSize || !region) {
+                showMessage('registerMessage', 'Please fill all required fields', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/clients/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_name: userName,
+                        organization: organization,
+                        data_size: parseInt(dataSize),
+                        region: region
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('registerMessage', `✓ ${result.message}`, 'success');
+                    document.getElementById('userName').value = '';
+                    document.getElementById('organization').value = '';
+                    document.getElementById('dataSize').value = '';
+                    document.getElementById('region').value = '';
+                    
+                    // Reload clients list
+                    setTimeout(() => {
+                        loadClients();
+                        loadStats();
+                    }, 1000);
+                } else {
+                    showMessage('registerMessage', `✗ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('registerMessage', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Load all clients
+        async function loadClients() {
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('clientsContainer').innerHTML = '';
+
+            try {
+                const response = await fetch('/api/clients');
+                const data = await response.json();
+
+                document.getElementById('loadingSpinner').style.display = 'none';
+
+                if (data.clients.length === 0) {
+                    document.getElementById('clientsContainer').innerHTML = '<div class="no-data">No clients registered yet. Register your first client above!</div>';
+                    return;
+                }
+
+                let html = '';
+                data.clients.forEach(client => {
+                    html += `
+                        <div class="client-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div>
+                                    <h3>${client.user_name}</h3>
+                                    <span class="status-badge ${client.status}">${client.status.toUpperCase()}</span>
+                                    ${client.model_shared ? '<span class="model-badge">✓ Model Shared</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="client-info">
+                                <div>
+                                    <p><strong>Client ID:</strong> ${client.client_id}</p>
+                                    <p><strong>Organization:</strong> ${client.organization}</p>
+                                    <p><strong>Region:</strong> ${client.region}</p>
+                                </div>
+                                <div>
+                                    <p><strong>Data Size:</strong> ${client.data_size.toLocaleString()} records</p>
+                                    <p><strong>Registered:</strong> ${new Date(client.registered_at).toLocaleDateString()}</p>
+                                    <p><strong>Contribution Score:</strong> ${client.contribution_score.toFixed(1)}</p>
+                                </div>
+                            </div>
+                            <div class="client-info">
+                                <div>
+                                    <p><strong>Rounds Participated:</strong> ${client.rounds_participated}</p>
+                                    <p><strong>Model Accuracy:</strong> ${(client.model_accuracy * 100).toFixed(2)}%</p>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="btn btn-small" onclick="shareModelUI('${client.client_id}', '${client.user_name}')">Share Model</button>
+                                ${client.status === 'active' ? `<button class="btn btn-small btn-secondary" onclick="deactivateClient('${client.client_id}')">Deactivate</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('clientsContainer').innerHTML = html;
+            } catch (error) {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('clientsContainer').innerHTML = `<div class="no-data">Error loading clients: ${error.message}</div>`;
+            }
+        }
+
+        // Share model UI
+        function shareModelUI(clientId, clientName) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pth,.pt';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    shareModel(clientId, clientName, file);
+                }
+            };
+            input.click();
+        }
+
+        // Share client model
+        async function shareModel(clientId, clientName, file) {
+            try {
+                const formData = new FormData();
+                formData.append('model', file);
+                formData.append('metrics', JSON.stringify({
+                    accuracy: 0.85,
+                    loss: 0.25
+                }));
+
+                const response = await fetch(`/api/clients/${clientId}/share-model`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('registerMessage', `✓ Model shared by ${clientName}`, 'success');
+                    setTimeout(() => {
+                        loadClients();
+                        loadStats();
+                    }, 1000);
+                } else {
+                    showMessage('registerMessage', `✗ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('registerMessage', `✗ Error sharing model: ${error.message}`, 'error');
+            }
+        }
+
+        // Deactivate client
+        async function deactivateClient(clientId) {
+            if (!confirm('Are you sure you want to deactivate this client?')) return;
+
+            try {
+                const response = await fetch(`/api/clients/${clientId}/deactivate`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('registerMessage', '✓ Client deactivated', 'success');
+                    setTimeout(() => {
+                        loadClients();
+                        loadStats();
+                    }, 1000);
+                } else {
+                    showMessage('registerMessage', `✗ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('registerMessage', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Aggregate models from all clients
+        async function aggregateModels() {
+            try {
+                document.getElementById('aggregationResults').style.display = 'none';
+                showMessage('aggregateMessage', '⏳ Aggregating models...', 'success');
+
+                const response = await fetch('/api/clients/aggregate', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('aggregateMessage', `✓ ${result.message}`, 'success');
+                    document.getElementById('aggregationResults').style.display = 'block';
+                    document.getElementById('aggregationDetails').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    showMessage('aggregateMessage', `✗ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('aggregateMessage', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Show message
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `message ${type}`;
+            setTimeout(() => {
+                element.className = 'message';
+            }, 4000);
+        }
+
+        // Initialize
+        loadStats();
+        loadClients();
+
+        // Refresh every 10 seconds
+        setInterval(() => {
+            loadStats();
+            loadClients();
+        }, 10000);
+    </script>
+</body>
+</html>
