@@ -1,0 +1,7 @@
+{
+  "status": "completed",
+  "total_rounds": 3,
+  "client_models_dir": "client_models",
+  "central_model": "centralized_model_aggregated.pth",
+  "total_time": 27.844817
+}

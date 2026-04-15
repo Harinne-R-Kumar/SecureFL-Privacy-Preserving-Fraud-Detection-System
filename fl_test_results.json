@@ -1,0 +1,62 @@
+{
+  "configuration": {
+    "num_clients": 5,
+    "num_rounds": 3,
+    "local_epochs_per_round": 2,
+    "device": "cpu"
+  },
+  "results": {
+    "total_clients": 5,
+    "total_rounds_completed": 3,
+    "global_losses": [
+      0.629707089662552,
+      0.5924973141040999,
+      0.5747733065639574
+    ],
+    "average_aggregation_time": 0.0006763333333333334,
+    "details_per_round": [
+      {
+        "round": 1,
+        "average_client_loss": 0.629707,
+        "individual_client_losses": [
+          0.632792,
+          0.629708,
+          0.628081,
+          0.630142,
+          0.627812
+        ],
+        "aggregation_time_seconds": 0.001,
+        "total_samples_aggregated": 77584,
+        "clients_participated": 5
+      },
+      {
+        "round": 2,
+        "average_client_loss": 0.592497,
+        "individual_client_losses": [
+          0.594968,
+          0.590467,
+          0.591103,
+          0.59388,
+          0.592069
+        ],
+        "aggregation_time_seconds": 0.001,
+        "total_samples_aggregated": 77584,
+        "clients_participated": 5
+      },
+      {
+        "round": 3,
+        "average_client_loss": 0.574773,
+        "individual_client_losses": [
+          0.576041,
+          0.571257,
+          0.574479,
+          0.576925,
+          0.575163
+        ],
+        "aggregation_time_seconds": 0.0,
+        "total_samples_aggregated": 77584,
+        "clients_participated": 5
+      }
+    ]
+  }
+}

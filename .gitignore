@@ -138,3 +138,4 @@ centralized_model_balanced.pth
 fl_model_balanced.pth
 debug-logs/
 .vscode-userdata/
+client_models
