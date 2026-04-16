@@ -10,6 +10,7 @@ import json
 import uuid
 import threading
 import copy
+from flask import Flask, render_template
 
 app = Flask(__name__, template_folder='templates')
 
@@ -21,6 +22,70 @@ app.config['REGISTERED_CLIENTS'] = {}
 app.config['CLIENT_UPDATES'] = []
 app.config['GLOBAL_MODEL_VERSION'] = 0
 app.config['AGGREGATION_LOCK'] = threading.Lock()
+
+# Predefined cloud clients for selective training
+app.config['REGISTERED_CLIENTS'] = {
+    'client-001': {
+        'client_id': 'client-001',
+        'client_name': 'BankA_Cloud',
+        'data_size': 5000,
+        'location': 'New York',
+        'api_key': 'cloud_key_001_abc123',
+        'registered_at': '2026-04-16T08:00:00',
+        'status': 'active',
+        'updates_contributed': 0,
+        'last_update': None,
+        'accuracy_history': []
+    },
+    'client-002': {
+        'client_id': 'client-002',
+        'client_name': 'BankB_Cloud',
+        'data_size': 3000,
+        'location': 'London',
+        'api_key': 'cloud_key_002_def456',
+        'registered_at': '2026-04-16T08:05:00',
+        'status': 'active',
+        'updates_contributed': 0,
+        'last_update': None,
+        'accuracy_history': []
+    },
+    'client-003': {
+        'client_id': 'client-003',
+        'client_name': 'ResearchLab_Cloud',
+        'data_size': 2000,
+        'location': 'Tokyo',
+        'api_key': 'cloud_key_003_ghi789',
+        'registered_at': '2026-04-16T08:10:00',
+        'status': 'active',
+        'updates_contributed': 0,
+        'last_update': None,
+        'accuracy_history': []
+    },
+    'client-004': {
+        'client_id': 'client-004',
+        'client_name': 'Hospital_Cloud',
+        'data_size': 1500,
+        'location': 'Singapore',
+        'api_key': 'cloud_key_004_jkl012',
+        'registered_at': '2026-04-16T08:15:00',
+        'status': 'active',
+        'updates_contributed': 0,
+        'last_update': None,
+        'accuracy_history': []
+    },
+    'client-005': {
+        'client_id': 'client-005',
+        'client_name': 'Insurance_Cloud',
+        'data_size': 4000,
+        'location': 'Dubai',
+        'api_key': 'cloud_key_005_mno345',
+        'registered_at': '2026-04-16T08:20:00',
+        'status': 'active',
+        'updates_contributed': 0,
+        'last_update': None,
+        'accuracy_history': []
+    }
+}
 
 class ModelAggregator:
     """Handle model weight aggregation from multiple clients"""
@@ -380,14 +445,11 @@ except Exception as e:
     personalized_fl = None
     print(f"⚠ Personalized FL Manager initialization failed: {e}")
 
+
+
 @app.route('/')
 def index():
-    """Serve the main landing page"""
-    try:
-        with open('templates/index.html', encoding='utf-8') as f:
-            return render_template_string(f.read())
-    except Exception as e:
-        return f"<h1>Error loading index page</h1><p>{e}</p>", 500
+    return render_template('index.html')
 
 @app.route('/dashboard')
 def dashboard():
@@ -397,6 +459,15 @@ def dashboard():
             return render_template_string(f.read())
     except Exception as e:
         return f"<h1>Error loading dashboard</h1><p>{e}</p>", 500
+
+@app.route('/selective_dashboard')
+def selective_dashboard():
+    """Serve the selective federated learning dashboard"""
+    try:
+        with open('templates/selective_dashboard.html', encoding='utf-8') as f:
+            return render_template_string(f.read())
+    except Exception as e:
+        return f"<h1>Error loading selective dashboard</h1><p>{e}</p>", 500
 
 @app.route('/security')
 def security_dashboard():
@@ -1248,6 +1319,25 @@ def advanced_fl_dashboard():
 
 
 # ============================================================================
+# ENHANCED CLIENT MANAGEMENT INTEGRATION
+# ============================================================================
+# Import enhanced management modules
+try:
+    from client_manager import ClientManager
+    from aggregation_manager import AggregationManager
+    import uuid
+    
+    # Initialize enhanced managers
+    app.config['CLIENT_MANAGER'] = ClientManager()
+    app.config['AGGREGATION_MANAGER'] = None  # Will be set in main()
+    
+    print("✅ Enhanced client management system initialized")
+except Exception as e:
+    print(f"⚠️ Enhanced modules initialization failed: {e}")
+    app.config['CLIENT_MANAGER'] = None
+    app.config['AGGREGATION_MANAGER'] = None
+
+# ============================================================================
 # CLIENT PARTICIPATION ENDPOINTS FOR EXTERNAL USERS
 # ============================================================================
 
@@ -1323,7 +1413,9 @@ def get_global_model():
         if model:
             weights = []
             for param in model.parameters():
-                weights.extend(param.data.cpu().numpy().flatten())
+                # Convert numpy float32 to regular Python floats for JSON serialization
+                param_data = param.data.cpu().numpy().flatten()
+                weights.extend([float(x) for x in param_data])
             
             model_info = {
                 'model_version': app.config['GLOBAL_MODEL_VERSION'],
@@ -1372,20 +1464,25 @@ def submit_client_update():
         app.config['REGISTERED_CLIENTS'][client_id]['updates_contributed'] += 1
         app.config['REGISTERED_CLIENTS'][client_id]['last_heartbeat'] = datetime.now().isoformat()
         
-        # Trigger aggregation if we have enough updates
-        if len(app.config['CLIENT_UPDATES']) >= 2:  # Aggregate with at least 2 clients
+        # Trigger aggregation when we have multiple clients (existing 5 + new clients)
+        if len(app.config['CLIENT_UPDATES']) >= 1:  # Aggregate with at least 1 client
             with app.config['AGGREGATION_LOCK']:
-                # Get recent updates (last 5 for efficiency)
-                recent_updates = app.config['CLIENT_UPDATES'][-5:]
+                # Get recent updates (last 10 for efficiency with 6+ clients)
+                recent_updates = app.config['CLIENT_UPDATES'][-10:]
                 
-                # Aggregate weights
+                # Aggregate weights using federated averaging
                 aggregated_weights = ModelAggregator.aggregate_weights_fedavg(recent_updates)
                 
                 if aggregated_weights:
                     # Update global model
                     success = ModelAggregator.update_global_model(aggregated_weights)
                     if success:
-                        print(f"Global model updated to version {app.config['GLOBAL_MODEL_VERSION']} from {len(recent_updates)} client updates")
+                        total_clients = len(app.config['REGISTERED_CLIENTS'])
+                        active_clients = len(recent_updates)
+                        print(f"Global model updated to version {app.config['GLOBAL_MODEL_VERSION']}")
+                        print(f"Total registered clients: {total_clients}")
+                        print(f"Active in this round: {active_clients}")
+                        print(f"Federated averaging across {active_clients} client updates")
         
         print(f"Received update from {app.config['REGISTERED_CLIENTS'][client_id]['client_name']}")
         
@@ -1438,6 +1535,414 @@ def get_model_updates():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+# ============================================================================
+# SELECTIVE TRAINING SYSTEM
+# ============================================================================
+
+# Global state for selective training
+app.config['SELECTED_CLIENTS'] = []
+app.config['TRAINING_ROUNDS'] = 0
+app.config['AGGREGATION_LOGS'] = []
+app.config['API_KEYS'] = {}
+
+class SelectiveAggregator:
+    """Advanced aggregation with selective client control"""
+    
+    @staticmethod
+    def weighted_aggregation(global_weights, selected_updates, weight_factor=0.2):
+        """
+        Weighted aggregation: 80% global + 20% selected clients
+        """
+        if not selected_updates:
+            return global_weights
+        
+        # Average selected client updates
+        try:
+            all_weights = []
+            for update in selected_updates:
+                weights = np.array(update['weights'])
+                all_weights.append(weights.flatten())
+            
+            if len(all_weights) > 0:
+                avg_selected = np.mean(all_weights, axis=0)
+                
+                # Handle global weights shape
+                global_flat = np.array(global_weights).flatten()
+                if len(global_flat) != len(avg_selected):
+                    if len(global_flat) < len(avg_selected):
+                        global_flat = np.pad(global_flat, (0, len(avg_selected) - len(global_flat)), 'constant')
+                    else:
+                        global_flat = global_flat[:len(avg_selected)]
+                
+                # Weighted combination
+                new_weights = (1 - weight_factor) * global_flat + weight_factor * avg_selected
+                
+                return new_weights.tolist()
+            else:
+                return global_weights if global_weights else [0.0] * 256
+                
+        except Exception as e:
+            print(f" Aggregation error: {e}")
+            return global_weights if global_weights else [0.0] * 256
+
+@app.route('/api/selective_train', methods=['POST'])
+def selective_training():
+    """Selective training endpoint with client model support"""
+    try:
+        data = request.get_json()
+        client_ids = data.get('client_ids', [])
+        aggregation_method = data.get('aggregation', 'weighted')  # 'weighted' or 'fedavg'
+        weight_factor = data.get('weight_factor', 0.2)  # For weighted aggregation
+        
+        if not client_ids:
+            return jsonify({'error': 'No client IDs specified'}), 400
+        
+        # Validate client IDs
+        valid_clients = [cid for cid in client_ids if cid in app.config['REGISTERED_CLIENTS']]
+        if not valid_clients:
+            return jsonify({'error': 'No valid clients specified'}), 400
+        
+        # Get updates from specified clients
+        selected_updates = [
+            update for update in app.config['CLIENT_UPDATES']
+            if update['client_id'] in valid_clients and update['round'] == app.config['TRAINING_ROUNDS']
+        ]
+        
+        if not selected_updates:
+            return jsonify({'error': 'No model updates found for specified clients'}), 400
+        
+        # Perform aggregation
+        with app.config['AGGREGATION_LOCK']:
+            if aggregation_method == 'weighted':
+                # Get current global model weights
+                if hasattr(app, 'global_model_weights'):
+                    global_weights = app.global_model_weights
+                else:
+                    global_weights = None
+                
+                new_weights = SelectiveAggregator.weighted_aggregation(
+                    global_weights, selected_updates, weight_factor
+                )
+                method_desc = f'Weighted aggregation ({(1-weight_factor)*100:.0f}% global + {weight_factor*100:.0f}% selected)'
+            else:  # fedavg
+                data_sizes = [app.config['REGISTERED_CLIENTS'][cid].get('data_size', 1000) for cid in valid_clients]
+                new_weights = ModelAggregator.aggregate_weights_fedavg(selected_updates)
+                method_desc = 'Federated averaging (FedAvg)'
+            
+            # Update global model version
+            app.config['GLOBAL_MODEL_VERSION'] += 1
+            app.config['TRAINING_ROUNDS'] += 1
+            app.config['SELECTED_CLIENTS'] = valid_clients
+            app.global_model_weights = new_weights
+            
+            # Log aggregation
+            log_entry = {
+                'round': app.config['TRAINING_ROUNDS'],
+                'timestamp': datetime.now().isoformat(),
+                'selected_clients': valid_clients,
+                'aggregation_method': method_desc,
+                'weight_factor': weight_factor,
+                'num_updates': len(selected_updates)
+            }
+            app.config['AGGREGATION_LOGS'].append(log_entry)
+            
+            # Save global model to file
+            global_model_path = f"global_model_v{app.config['TRAINING_ROUNDS']}.pkl"
+            try:
+                model_data = {
+                    'version': app.config['TRAINING_ROUNDS'],
+                    'weights': new_weights,
+                    'timestamp': datetime.now().isoformat(),
+                    'selected_clients': valid_clients,
+                    'aggregation_method': method_desc
+                }
+                with open(global_model_path, 'wb') as f:
+                    pickle.dump(model_data, f)
+                print(f" Global model saved to {global_model_path}")
+            except Exception as e:
+                print(f" Error saving global model: {e}")
+        
+        return jsonify({
+            'status': 'training_completed',
+            'round': app.config['TRAINING_ROUNDS'],
+            'selected_clients': valid_clients,
+            'aggregation_method': method_desc,
+            'weight_factor': weight_factor,
+            'num_updates_processed': len(selected_updates),
+            'model_version': app.config['TRAINING_ROUNDS']
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/selective_status', methods=['GET'])
+def selective_status():
+    """Get selective training status"""
+    return jsonify({
+        'total_clients': len(app.config['REGISTERED_CLIENTS']),
+        'training_rounds': app.config['TRAINING_ROUNDS'],
+        'selected_clients_last_round': app.config['SELECTED_CLIENTS'],
+        'total_updates': len(app.config['CLIENT_UPDATES']),
+        'global_model_version': app.config['GLOBAL_MODEL_VERSION'],
+        'aggregation_logs': app.config['AGGREGATION_LOGS'][-5:]  # Last 5 rounds
+    })
+
+@app.route('/api/selective_logs', methods=['GET'])
+def selective_logs():
+    """Get selective training logs"""
+    return jsonify({
+        'logs': app.config['AGGREGATION_LOGS'],
+        'total_rounds': app.config['TRAINING_ROUNDS'],
+        'current_version': app.config['GLOBAL_MODEL_VERSION']
+    })
+
+# ============================================================================
+# ENHANCED MANAGEMENT ENDPOINTS (if enhanced modules available)
+# ============================================================================
+
+if app.config.get('CLIENT_MANAGER') and app.config.get('AGGREGATION_MANAGER'):
+    
+    @app.route('/api/client-management/register', methods=['POST'])
+    def enhanced_register_client():
+        """Enhanced client registration with scoring"""
+        try:
+            data = request.get_json()
+            client_id = str(uuid.uuid4())
+            
+            client_info = {
+                'client_name': data.get('client_name', f'Client_{client_id[:8]}'),
+                'data_size': data.get('data_size', 1000),
+                'location': data.get('location', 'Unknown'),
+                'api_key': data.get('api_key', '')
+            }
+            
+            # Register with client manager
+            success = app.config['CLIENT_MANAGER'].register_client(client_id, client_info)
+            if not success:
+                return jsonify({
+                    'error': 'Registration failed - maximum clients reached'
+                }), 400
+            
+            return jsonify({
+                'status': 'registered',
+                'client_id': client_id,
+                'message': 'Client registered successfully with scoring system',
+                'server_info': {
+                    'global_model_version': app.config['AGGREGATION_MANAGER'].current_version,
+                    'trust_score': app.config['CLIENT_MANAGER'].client_scores[client_id]['trust_score'],
+                    'initial_weight': app.config['CLIENT_MANAGER'].client_scores[client_id]['contribution_score'],
+                    'next_steps': [
+                        f'GET /api/client/model?client_id={client_id}',
+                        'Train locally on your data',
+                        f'POST /api/client-management/update (enhanced)',
+                        f'GET /api/client-management/status/{client_id} (track your score)'
+                    ]
+                }
+            })
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/client-management/update', methods=['POST'])
+    def enhanced_client_update():
+        """Enhanced client update with scoring and smart aggregation"""
+        try:
+            data = request.get_json()
+            client_id = data.get('client_id')
+            
+            if not client_id:
+                return jsonify({'error': 'client_id required'}), 400
+            
+            if not app.config['CLIENT_MANAGER'].is_client_selected(client_id):
+                return jsonify({
+                    'error': 'Client not selected for training',
+                    'message': 'This client is not currently selected for federated learning',
+                    'selected_clients': app.config['CLIENT_MANAGER'].get_selected_clients()
+                }), 403
+            
+            # Update client score
+            metrics = data.get('metrics', {})
+            accuracy = metrics.get('accuracy', 0.0)
+            data_size = app.config['CLIENT_MANAGER'].client_scores[client_id]['data_size']
+            
+            app.config['CLIENT_MANAGER'].update_client_score(client_id, accuracy, data_size)
+            app.config['CLIENT_MANAGER'].update_client_activity(client_id)
+            
+            # Queue for smart aggregation
+            client_scores = app.config['CLIENT_MANAGER'].client_scores
+            result = app.config['AGGREGATION_MANAGER'].queue_update(client_id, data.get('weights', []), metrics, client_scores)
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/client-management/status/<client_id>', methods=['GET'])
+    def get_enhanced_client_status(client_id):
+        """Get detailed client status with scores"""
+        try:
+            status = app.config['CLIENT_MANAGER'].get_client_status(client_id)
+            if not status:
+                return jsonify({'error': 'Client not found'}), 404
+            
+            # Add contribution history
+            contributions = app.config['AGGREGATION_MANAGER'].get_client_contributions(client_id)
+            status.update(contributions)
+            
+            return jsonify(status)
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/client-management/select', methods=['POST'])
+    def select_clients_for_training():
+        """Select which clients should participate in next round"""
+        try:
+            data = request.get_json()
+            client_ids = data.get('client_ids', [])
+            selection_method = data.get('method', 'weighted')
+            num_clients = data.get('num_clients', 5)
+            
+            if client_ids:
+                # Manual selection
+                app.config['CLIENT_MANAGER'].set_selected_clients(client_ids)
+            else:
+                # Automatic selection
+                selected = app.config['CLIENT_MANAGER'].select_clients_for_training(num_clients, selection_method)
+                app.config['CLIENT_MANAGER'].set_selected_clients(selected)
+            
+            return jsonify({
+                'status': 'clients_selected',
+                'selected_clients': app.config['CLIENT_MANAGER'].get_selected_clients(),
+                'selection_method': selection_method,
+                'total_eligible': len([
+                    cid for cid in app.config['CLIENT_MANAGER'].registered_clients.keys()
+                    if cid not in app.config['CLIENT_MANAGER'].blocked_clients
+                ])
+            })
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/client-management/block', methods=['POST'])
+    def block_client():
+        """Block a client from participation"""
+        try:
+            data = request.get_json()
+            client_id = data.get('client_id')
+            reason = data.get('reason', 'Administrative action')
+            
+            success = app.config['CLIENT_MANAGER'].block_client(client_id, reason)
+            if success:
+                return jsonify({
+                    'status': 'client_blocked',
+                    'client_id': client_id,
+                    'reason': reason,
+                    'blocked_at': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({'error': 'Client not found'}), 404
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/client-management/unblock', methods=['POST'])
+    def unblock_client():
+        """Unblock a client"""
+        try:
+            data = request.get_json()
+            client_id = data.get('client_id')
+            
+            success = app.config['CLIENT_MANAGER'].unblock_client(client_id)
+            if success:
+                return jsonify({
+                    'status': 'client_unblocked',
+                    'client_id': client_id
+                })
+            else:
+                return jsonify({'error': 'Client not found'}), 404
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/aggregation/queue-status', methods=['GET'])
+    def get_aggregation_queue_status():
+        """Get aggregation queue status"""
+        try:
+            return jsonify(app.config['AGGREGATION_MANAGER'].get_queue_status())
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/aggregation/force', methods=['POST'])
+    def force_aggregation():
+        """Force immediate aggregation of queued updates"""
+        try:
+            return jsonify(app.config['AGGREGATION_MANAGER'].force_aggregation())
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/model/rollback', methods=['POST'])
+    def rollback_model():
+        """Rollback to specific model version"""
+        try:
+            data = request.get_json()
+            version = data.get('version')
+            
+            return jsonify(app.config['AGGREGATION_MANAGER'].rollback_to_version(version))
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/model/versions', methods=['GET'])
+    def get_model_versions():
+        """Get model version history"""
+        try:
+            limit = request.args.get('limit', 10, type=int)
+            return jsonify({
+                'current_version': app.config['AGGREGATION_MANAGER'].current_version,
+                'versions': app.config['AGGREGATION_MANAGER'].get_version_history(limit),
+                'total_versions': len(app.config['AGGREGATION_MANAGER'].model_versions)
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/aggregation/logs', methods=['GET'])
+    def get_aggregation_logs():
+        """Get aggregation logs"""
+        try:
+            limit = request.args.get('limit', 20, type=int)
+            return jsonify({
+                'logs': app.config['AGGREGATION_MANAGER'].get_aggregation_logs(limit),
+                'rejected_updates': app.config['AGGREGATION_MANAGER'].get_rejected_updates(limit)
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    
+    @app.route('/api/management/dashboard', methods=['GET'])
+    def get_management_dashboard():
+        """Enhanced management dashboard"""
+        try:
+            client_stats = app.config['CLIENT_MANAGER'].get_statistics()
+            aggregation_stats = app.config['AGGREGATION_MANAGER'].get_queue_status()
+            
+            return jsonify({
+                'system_status': 'ENHANCED_MODE',
+                'client_management': client_stats,
+                'aggregation_status': aggregation_stats,
+                'model_control': {
+                    'current_version': app.config['AGGREGATION_MANAGER'].current_version,
+                    'total_versions': len(app.config['AGGREGATION_MANAGER'].model_versions),
+                    'last_aggregation': app.config['AGGREGATION_MANAGER'].aggregation_logs[-1] if app.config['AGGREGATION_MANAGER'].aggregation_logs else None
+                },
+                'security': {
+                    'blocked_clients': len(app.config['CLIENT_MANAGER'].blocked_clients),
+                    'rejected_updates': len(app.config['AGGREGATION_MANAGER'].rejected_updates),
+                    'deviation_threshold': app.config['AGGREGATION_MANAGER'].deviation_threshold
+                }
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     print("\n" + "="*70)
