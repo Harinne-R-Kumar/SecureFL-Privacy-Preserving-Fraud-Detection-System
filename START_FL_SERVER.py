@@ -13,27 +13,86 @@ Run this FIRST, then run clients in different terminals.
 
 import sys
 import os
+import subprocess
+import time
+import threading
+import requests
 
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+def start_ngrok():
+    """Start ngrok tunnel and return public URL"""
+    try:
+        # Kill existing ngrok processes
+        subprocess.run(['taskkill', '/f', '/im', 'ngrok.exe'], capture_output=True)
+        time.sleep(2)
+        
+        # Start ngrok
+        cmd = f'ngrok http 5000 --log=stdout'
+        ngrok_process = subprocess.Popen(
+            cmd.split(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # Wait for ngrok to start
+        time.sleep(5)
+        
+        # Get public URL
+        response = requests.get('http://127.0.0.1:4040/api/tunnels')
+        if response.status_code == 200:
+            tunnels = response.json()['tunnels']
+            if tunnels:
+                return tunnels[0]['public_url']
+    except:
+        pass
+    return None
+
 try:
     from flask_app_advanced import app
+    
+    # Start ngrok in background
+    print("** Starting ngrok tunnel...")
+    ngrok_url = start_ngrok()
+    
     print("\n" + "="*80)
-    print("✅ FEDERATED LEARNING REAL-TIME SERVER")
+    print("** FEDERATED LEARNING REAL-TIME SERVER - NGROK ENABLED")
     print("="*80)
-    print("\n🚀 Starting Flask server for real-time federated learning...\n")
+    print("\n** Starting Flask server for real-time federated learning...\n")
     
-    print("📌 SERVER RUNNING ON:")
-    print("   → Address: http://127.0.0.1:5000")
-    print("   → Status: LISTENING for client connections\n")
+    print("** SERVER RUNNING ON:")
+    print("   Local: http://127.0.0.1:5000")
+    if ngrok_url:
+        print(f"   Public: {ngrok_url} ** EXTERNAL CLIENTS CAN CONNECT!")
+    else:
+        print("   Public: ngrok not available - local only")
+    print("   Status: LISTENING for client connections\n")
     
-    print("🌐 KEY ENDPOINTS (for testing):")
+    print("** KEY ENDPOINTS (for testing):")
     print("   1. Dashboard: http://127.0.0.1:5000")
+    if ngrok_url:
+        print(f"   1. Public Dashboard: {ngrok_url}")
     print("   2. Status: http://127.0.0.1:5000/api/advanced-fl/dashboard")
+    if ngrok_url:
+        print(f"   2. Public Status: {ngrok_url}/api/advanced-fl/dashboard")
     print("   3. Personalized FL: http://127.0.0.1:5000/api/personalized-fl/status\n")
     
-    print("💻 TO TEST CLIENT MODEL UPDATES IN REAL-TIME:")
+    print("   CLIENT PARTICIPATION ENDPOINTS:")
+    print("   4. Client Registration: POST /api/client/register")
+    print("   5. Get Global Model: GET /api/client/model?client_id=UUID")
+    print("   6. Submit Update: POST /api/client/update")
+    print("   7. Client Status: GET /api/client/status")
+    print("   8. Model Updates: GET /api/client/updates\n")
+    
+    if ngrok_url:
+        print("   EXTERNAL CLIENTS CAN CONNECT NOW:")
+        print(f"   Share this URL: {ngrok_url}")
+        print("   External users run:")
+        print(f"   python fl_client.py --server {ngrok_url} --name MyBank --data-size 5000\n")
+    
+    print("   LOCAL CLIENT TESTING:")
     print("   Open another terminal and run:")
     print("   → python run_single_client.py 0  (Client 0)")
     print("   → python run_single_client.py 1  (Client 1)")

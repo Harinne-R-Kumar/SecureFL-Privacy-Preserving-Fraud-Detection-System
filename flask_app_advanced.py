@@ -7,8 +7,79 @@ import os
 from datetime import datetime
 from typing import Dict, List, Tuple
 import json
+import uuid
+import threading
+import copy
 
 app = Flask(__name__, template_folder='templates')
+
+# ============================================================================
+# CLIENT PARTICIPATION SYSTEM FOR EXTERNAL USERS
+# ============================================================================
+# Global state for client management
+app.config['REGISTERED_CLIENTS'] = {}
+app.config['CLIENT_UPDATES'] = []
+app.config['GLOBAL_MODEL_VERSION'] = 0
+app.config['AGGREGATION_LOCK'] = threading.Lock()
+
+class ModelAggregator:
+    """Handle model weight aggregation from multiple clients"""
+    
+    @staticmethod
+    def aggregate_weights_fedavg(client_updates):
+        """
+        Federated Averaging - weighted average of client model weights
+        Based on data size contribution from each client
+        """
+        if not client_updates:
+            return None
+        
+        # Extract weights and data sizes
+        weights_list = []
+        data_sizes = []
+        
+        for update in client_updates:
+            weights = np.array(update['weights'])
+            data_size = update.get('data_size', 1000)
+            
+            weights_list.append(weights)
+            data_sizes.append(data_size)
+        
+        # Calculate weighted average
+        total_data = sum(data_sizes)
+        if total_data == 0:
+            total_data = len(data_sizes)  # fallback to equal weighting
+        
+        # Weighted averaging
+        aggregated_weights = np.zeros_like(weights_list[0])
+        for i, weights in enumerate(weights_list):
+            weight_factor = data_sizes[i] / total_data
+            aggregated_weights += weight_factor * weights
+        
+        return aggregated_weights.tolist()
+    
+    @staticmethod
+    def update_global_model(aggregated_weights):
+        """Update the global model with aggregated weights"""
+        try:
+            if model and aggregated_weights:
+                # Convert weights back to model parameters
+                offset = 0
+                for param in model.parameters():
+                    param_size = param.data.numel()
+                    param_weights = aggregated_weights[offset:offset + param_size]
+                    param.data = torch.tensor(param_weights).reshape(param.data.shape).float()
+                    offset += param_size
+                
+                # Update model version
+                with app.config['AGGREGATION_LOCK']:
+                    app.config['GLOBAL_MODEL_VERSION'] += 1
+                
+                return True
+        except Exception as e:
+            print(f"Error updating global model: {e}")
+            return False
+        return False
 
 # ============================================================================
 # 1. FEDPROX - HANDLING NON-IID DATA WITH REGULARIZATION
@@ -1115,8 +1186,21 @@ def adapt_client_model():
 @app.route('/api/advanced-fl/dashboard', methods=['GET'])
 def advanced_fl_dashboard():
     """Complete dashboard for all advanced FL features"""
+    # Get client participation stats
+    active_clients = len([c for c in app.config['REGISTERED_CLIENTS'].values() 
+                          if c.get('status') == 'active'])
+    total_updates = len(app.config['CLIENT_UPDATES'])
+    global_model_version = app.config['GLOBAL_MODEL_VERSION']
+    
     return jsonify({
         'system_status': 'PRODUCTION READY',
+        'client_participation': {
+            'registered_clients': len(app.config['REGISTERED_CLIENTS']),
+            'active_clients': active_clients,
+            'total_updates': total_updates,
+            'global_model_version': global_model_version,
+            'last_update': app.config['CLIENT_UPDATES'][-1]['timestamp'] if app.config['CLIENT_UPDATES'] else None
+        },
         'features': {
             'FedProx': {
                 'enabled': bool(fedprox_optimizer),
@@ -1155,11 +1239,205 @@ def advanced_fl_dashboard():
             }
         },
         'recommendations': [
-            '✓ Use FedProx if client data distributions differ significantly (ESSENTIAL)',
-            '✓ Use FedOpt (FedYogi) for faster server-side optimization',
-            '✓ Use PersonalizedFL for bank-specific fraud detection'
+            'Use FedProx if client data distributions differ significantly (ESSENTIAL)',
+            'Use FedOpt (FedYogi) for faster server-side optimization',
+            'Use PersonalizedFL for bank-specific fraud detection',
+            'External clients can now participate via /api/client/* endpoints'
         ]
     })
+
+
+# ============================================================================
+# CLIENT PARTICIPATION ENDPOINTS FOR EXTERNAL USERS
+# ============================================================================
+
+@app.route('/api/client/register', methods=['POST'])
+def register_client():
+    """Register a new external client for federated learning"""
+    try:
+        data = request.get_json()
+        client_id = str(uuid.uuid4())
+        
+        client_info = {
+            'client_id': client_id,
+            'client_name': data.get('client_name', f'Client_{client_id[:8]}'),
+            'data_size': data.get('data_size', 1000),
+            'location': data.get('location', 'Unknown'),
+            'registered_at': datetime.now().isoformat(),
+            'status': 'active',
+            'last_heartbeat': datetime.now().isoformat(),
+            'updates_contributed': 0
+        }
+        
+        app.config['REGISTERED_CLIENTS'][client_id] = client_info
+        
+        print(f"New client registered: {client_info['client_name']} ({client_id})")
+        
+        return jsonify({
+            'status': 'registered',
+            'client_id': client_id,
+            'message': 'Client registered successfully',
+            'server_info': {
+                'global_model_version': app.config['GLOBAL_MODEL_VERSION'],
+                'next_steps': [
+                    'GET /api/client/model?client_id=' + client_id,
+                    'Train locally on your data',
+                    'POST /api/client/update with your model weights'
+                ]
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/client/heartbeat', methods=['POST'])
+def client_heartbeat():
+    """Update client heartbeat to maintain connection"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        
+        if client_id in app.config['REGISTERED_CLIENTS']:
+            app.config['REGISTERED_CLIENTS'][client_id]['last_heartbeat'] = datetime.now().isoformat()
+            app.config['REGISTERED_CLIENTS'][client_id]['status'] = 'active'
+            return jsonify({'status': 'heartbeat_received'})
+        else:
+            return jsonify({'error': 'Client not found'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/client/model', methods=['GET'])
+def get_global_model():
+    """Get current global model weights for client training"""
+    try:
+        client_id = request.args.get('client_id')
+        
+        if not client_id:
+            return jsonify({'error': 'client_id required'}), 400
+        
+        if client_id not in app.config['REGISTERED_CLIENTS']:
+            return jsonify({'error': 'Client not registered'}), 404
+        
+        # Extract current model weights
+        if model:
+            weights = []
+            for param in model.parameters():
+                weights.extend(param.data.cpu().numpy().flatten())
+            
+            model_info = {
+                'model_version': app.config['GLOBAL_MODEL_VERSION'],
+                'model_architecture': 'PredictionModel(input_size=9)',
+                'weights': weights,
+                'metadata': {
+                    'training_rounds': 5,
+                    'last_updated': datetime.now().isoformat(),
+                    'contributors': len(app.config['CLIENT_UPDATES']),
+                    'model_parameters': len(weights)
+                }
+            }
+            
+            return jsonify(model_info)
+        else:
+            return jsonify({'error': 'Global model not available'}), 503
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/client/update', methods=['POST'])
+def submit_client_update():
+    """Submit model update from external client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        
+        if not client_id:
+            return jsonify({'error': 'client_id required'}), 400
+        
+        if client_id not in app.config['REGISTERED_CLIENTS']:
+            return jsonify({'error': 'Client not registered'}), 404
+        
+        # Store the update
+        update_info = {
+            'client_id': client_id,
+            'client_name': app.config['REGISTERED_CLIENTS'][client_id]['client_name'],
+            'weights': data.get('weights', []),
+            'data_size': app.config['REGISTERED_CLIENTS'][client_id]['data_size'],
+            'metrics': data.get('metrics', {}),
+            'timestamp': datetime.now().isoformat(),
+            'model_version': app.config['GLOBAL_MODEL_VERSION']
+        }
+        
+        app.config['CLIENT_UPDATES'].append(update_info)
+        app.config['REGISTERED_CLIENTS'][client_id]['updates_contributed'] += 1
+        app.config['REGISTERED_CLIENTS'][client_id]['last_heartbeat'] = datetime.now().isoformat()
+        
+        # Trigger aggregation if we have enough updates
+        if len(app.config['CLIENT_UPDATES']) >= 2:  # Aggregate with at least 2 clients
+            with app.config['AGGREGATION_LOCK']:
+                # Get recent updates (last 5 for efficiency)
+                recent_updates = app.config['CLIENT_UPDATES'][-5:]
+                
+                # Aggregate weights
+                aggregated_weights = ModelAggregator.aggregate_weights_fedavg(recent_updates)
+                
+                if aggregated_weights:
+                    # Update global model
+                    success = ModelAggregator.update_global_model(aggregated_weights)
+                    if success:
+                        print(f"Global model updated to version {app.config['GLOBAL_MODEL_VERSION']} from {len(recent_updates)} client updates")
+        
+        print(f"Received update from {app.config['REGISTERED_CLIENTS'][client_id]['client_name']}")
+        
+        return jsonify({
+            'status': 'update_received',
+            'new_global_model_version': app.config['GLOBAL_MODEL_VERSION'],
+            'message': 'Model update received and aggregated',
+            'total_updates': len(app.config['CLIENT_UPDATES']),
+            'your_contributions': app.config['REGISTERED_CLIENTS'][client_id]['updates_contributed']
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/client/status', methods=['GET'])
+def get_client_status():
+    """Get status of all registered clients"""
+    try:
+        clients = list(app.config['REGISTERED_CLIENTS'].values())
+        
+        # Update client status based on last heartbeat
+        current_time = datetime.now()
+        for client in clients:
+            last_heartbeat = datetime.fromisoformat(client['last_heartbeat'])
+            if (current_time - last_heartbeat).total_seconds() > 60:  # 1 minute timeout
+                client['status'] = 'inactive'
+        
+        return jsonify({
+            'total_clients': len(clients),
+            'active_clients': len([c for c in clients if c['status'] == 'active']),
+            'clients': clients,
+            'global_model_version': app.config['GLOBAL_MODEL_VERSION'],
+            'total_updates': len(app.config['CLIENT_UPDATES'])
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/client/updates', methods=['GET'])
+def get_model_updates():
+    """Get recent model updates for dashboard display"""
+    try:
+        recent_updates = app.config['CLIENT_UPDATES'][-10:]  # Last 10 updates
+        
+        return jsonify({
+            'total_updates': len(app.config['CLIENT_UPDATES']),
+            'recent_updates': recent_updates,
+            'global_model_version': app.config['GLOBAL_MODEL_VERSION']
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     print("\n" + "="*70)
