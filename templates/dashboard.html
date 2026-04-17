@@ -381,22 +381,28 @@
         }
     </style>
 </head>
+
 <body>
-    <!-- Navbar -->
     <nav class="navbar">
         <div class="navbar-container">
-            <div class="navbar-brand">🔒 FL-Fraud Detection</div>
+            <div class="navbar-brand">🔐 SecureFL</div>
             <ul class="nav-links">
                 <li><a href="#" onclick="showPage('home')" class="nav-link active">Home</a></li>
                 <li><a href="#" onclick="showPage('comparison')" class="nav-link">Comparison</a></li>
                 <li><a href="#" onclick="showPage('architecture')" class="nav-link">FL Architecture</a></li>
                 <li><a href="#" onclick="showPage('privacy')" class="nav-link">Privacy Analysis</a></li>
                 <li><a href="#" onclick="showPage('predict')" class="nav-link">Predict</a></li>
+                <li><a href="/selective_dashboard" class="nav-link">Selective Dashboard</a></li>
+                <li><a href="#" onclick="refreshData()" class="nav-link">🔄 Refresh</a></li>
             </ul>
         </div>
     </nav>
 
-    <div class="container">
+            .arrow {
+                font-size: 1.5rem;
+                color: #667eea;
+                margin: 0.5rem;
+            }
         <!-- Home Page -->
         <div id="home" class="page-content active">
             <div class="hero">
@@ -409,28 +415,28 @@
                 <div class="stat-card">
                     <div style="font-size: 2rem;">📊</div>
                     <div class="stat-label">Dataset Size</div>
-                    <div class="stat-number">51K</div>
+                    <div class="stat-number" id="total-transactions">-</div>
                     <div class="stat-label">Transactions</div>
                 </div>
 
                 <div class="stat-card">
                     <div style="font-size: 2rem;">🏥</div>
                     <div class="stat-label">Clients</div>
-                    <div class="stat-number">5</div>
+                    <div class="stat-number" id="fl-clients">-</div>
                     <div class="stat-label">Federated</div>
                 </div>
 
                 <div class="stat-card">
                     <div style="font-size: 2rem;">🎯</div>
                     <div class="stat-label">Centralized Accuracy</div>
-                    <div class="stat-number">95.08%</div>
+                    <div class="stat-number" id="centralized-accuracy">-</div>
                     <div class="stat-label">Baseline Model</div>
                 </div>
 
                 <div class="stat-card">
                     <div style="font-size: 2rem;">🔐</div>
                     <div class="stat-label">FL Accuracy</div>
-                    <div class="stat-number">~85%</div>
+                    <div class="stat-number" id="fl-accuracy">-</div>
                     <div class="stat-label">With Privacy</div>
                 </div>
             </div>
@@ -479,13 +485,13 @@
                     <tbody>
                         <tr>
                             <td><strong>Model Accuracy</strong></td>
-                            <td><span class="badge badge-success">95.08%</span></td>
-                            <td><span class="badge badge-warning">~85%</span></td>
+                            <td><span class="badge badge-success" id="comp-centralized-acc">95.08%</span></td>
+                            <td><span class="badge badge-warning" id="comp-fl-acc">~85%</span></td>
                         </tr>
                         <tr>
                             <td><strong>AUC Score</strong></td>
-                            <td><span class="badge badge-success">0.4957</span></td>
-                            <td><span class="badge badge-warning">~0.80</span></td>
+                            <td><span class="badge badge-success" id="comp-centralized-auc">0.4957</span></td>
+                            <td><span class="badge badge-warning" id="comp-fl-auc">~0.80</span></td>
                         </tr>
                         <tr>
                             <td><strong>Data Privacy</strong></td>
@@ -505,7 +511,7 @@
                         <tr>
                             <td><strong>Differential Privacy</strong></td>
                             <td><span class="badge badge-danger">None</span></td>
-                            <td><span class="badge badge-success">Yes (σ=0.5)</span></td>
+                            <td><span class="badge badge-success" id="diff-privacy">-</span></td>
                         </tr>
                         <tr>
                             <td><strong>Model Inversion Risk</strong></td>
@@ -972,6 +978,86 @@
                 alert('Error making prediction: ' + error);
             }
         });
+
+        // Real-time data fetching functions
+        async function fetchStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                // Update main dashboard stats
+                document.getElementById('total-transactions').textContent = stats.total_transactions || '-';
+                document.getElementById('fl-clients').textContent = stats.active_clients || '-';
+                document.getElementById('centralized-accuracy').textContent = stats.centralized_accuracy ? stats.centralized_accuracy + '%' : '-';
+                document.getElementById('fl-accuracy').textContent = stats.fl_accuracy ? stats.fl_accuracy + '%' : '-';
+                
+                // Update comparison table
+                document.getElementById('comp-centralized-acc').textContent = stats.centralized_accuracy ? stats.centralized_accuracy + '%' : '-';
+                document.getElementById('comp-fl-acc').textContent = stats.fl_accuracy ? stats.fl_accuracy + '%' : '-';
+                document.getElementById('comp-centralized-auc').textContent = stats.centralized_auc || '-';
+                document.getElementById('comp-fl-auc').textContent = stats.fl_auc || '-';
+                document.getElementById('diff-privacy').textContent = stats.diff_privacy_enabled ? `Yes (σ=${stats.noise_multiplier || '0.5'})` : 'No';
+                
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                const metrics = await response.json();
+                
+                // Update charts with real-time data
+                if (metrics.training_loss && window.lossChart) {
+                    window.lossChart.data.datasets[0].data = metrics.training_loss;
+                    window.lossChart.update();
+                }
+                
+                if (metrics.accuracy_comparison && window.accuracyChart) {
+                    window.accuracyChart.data.datasets[0].data = metrics.accuracy_comparison;
+                    window.accuracyChart.update();
+                }
+                
+                if (metrics.fraud_distribution && window.fraudDistChart) {
+                    window.fraudDistChart.data.datasets[0].data = metrics.fraud_distribution;
+                    window.fraudDistChart.update();
+                }
+                
+                if (metrics.client_data && window.clientDataChart) {
+                    window.clientDataChart.data.datasets[0].data = metrics.client_data;
+                    window.clientDataChart.update();
+                }
+                
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+            }
+        }
+
+        // Auto-refresh functionality
+        function startAutoRefresh() {
+            // Initial fetch
+            fetchStats();
+            fetchMetrics();
+            
+            // Set up periodic refresh every 10 seconds
+            setInterval(() => {
+                fetchStats();
+                fetchMetrics();
+            }, 10000);
+        }
+
+        // Enhanced initialization with real-time data
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+            startAutoRefresh();
+        });
+
+        // Manual refresh button functionality
+        function refreshData() {
+            fetchStats();
+            fetchMetrics();
+        }
     </script>
 </body>
 </html>
